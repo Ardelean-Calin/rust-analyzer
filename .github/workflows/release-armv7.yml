@@ -1,0 +1,47 @@
+name: Compile Rust-Analyzer for ARMv7 (Raspberry Pi 2+)
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: "0 0 * * *"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: tgymnich/fork-sync@v1.4
+      with:
+        owner: rust-analyzer
+        base: release
+        head: release
+    - uses: actions/checkout@v2
+      with:
+        ref: release
+    - name: Prepare
+      run: |
+        sudo apt-get update
+        sudo apt-get install gcc-arm-linux-gnueabihf
+        rustup target add armv7-unknown-linux-gnueabihf
+    - name: Build
+      run: |
+        cargo build --release --target=armv7-unknown-linux-gnueabihf
+        cd target/armv7-unknown-linux-gnueabihf/release/
+        zip rust-analyzer.zip rust-analyzer
+        cd /
+    - name: Deploy Release
+      uses: WebFreak001/deploy-nightly@v1.1.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # automatically provided by github actions
+      with:
+        upload_url: https://uploads.github.com/repos/Ardelean-Calin/rust-analyzer-arm/releases/60411872/assets{?name,label} # find out this value by opening https://api.github.com/repos/<owner>/<repo>/releases in your browser and copy the full "upload_url" value including the {?name,label} part
+        release_id: 60411872 # same as above (id can just be taken out the upload_url, it's used to find old releases)
+        asset_path: ./target/armv7-unknown-linux-gnueabihf/release/rust-analyzer.zip # path to archive to upload
+        asset_name: rustanalyzer_arm-nightly-$$.zip # name to upload the release as, use $$ to insert date (YYYYMMDD) and 6 letter commit hash
+        asset_content_type: application/zip # required by GitHub API
+        max_releases: 7 # optional, if there are more releases than this matching the asset_name, the oldest ones are going to be deleted
